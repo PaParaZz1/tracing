@@ -21,3 +21,9 @@ JAEGER_ENDPOINT=http://<docker-ip>:14268/api/traces python example/test.py
 ```text
 http://<docker-ip>:16686/search
 ```
+
+## 更多信息
+
+- [OpenTracing](https://opentracing.io/)
+- [Jaeger - a Distributed Tracing System](https://github.com/jaegertracing/jaeger)
+- [Jaeger Bindings for Python OpenTracing API](https://github.com/jaegertracing/jaeger-client-python)
