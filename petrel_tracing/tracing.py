@@ -1,4 +1,3 @@
-# from multiprocessing.process import current_process
 import os
 import multiprocessing
 import threading
