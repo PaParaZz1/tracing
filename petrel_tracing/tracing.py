@@ -123,10 +123,9 @@ def identity_wrapper(fn):
     return fn
 
 
-def trace_class(cls, *, span_name=None, flask_request=False, sleep_at_exit=False):
-
+def trace_class(cls, *, span_name=None, flask_request=False, sleep_at_exit=False, method_list=None):
     for attr, val in cls.__dict__.items():
-        if attr.startswith('__'):
+        if (method_list and attr not in method_list) or attr.startswith('__'):
             continue
 
         if isinstance(val, staticmethod):
@@ -135,16 +134,21 @@ def trace_class(cls, *, span_name=None, flask_request=False, sleep_at_exit=False
         else:
             fn_wrapper = identity_wrapper
 
-        if not attr.startswith('__') and callable(val) and not getattr(val, '__traced', False):
+        if callable(val) and not getattr(val, '__traced', False):
             setattr(cls, attr, fn_wrapper(trace(val, span_name=span_name,
                     flask_request=flask_request, sleep_at_exit=sleep_at_exit)))
 
     return cls
 
 
-def trace(target=None, *, operation_name=None, span_name=None, flask_request=False, ignore=False, sleep_at_exit=False):
+def trace(target=None, *,
+          operation_name=None, span_name=None,
+          flask_request=False, ignore=False,
+          sleep_at_exit=False, method_list=None):
     if target is None:
-        return partial(trace, operation_name=operation_name, span_name=span_name, flask_request=flask_request, ignore=ignore, sleep_at_exit=sleep_at_exit)
+        return partial(trace, operation_name=operation_name, span_name=span_name,
+                       flask_request=flask_request, ignore=ignore,
+                       sleep_at_exit=sleep_at_exit, method_list=method_list)
 
     if not enabled:
         return target
@@ -153,9 +157,11 @@ def trace(target=None, *, operation_name=None, span_name=None, flask_request=Fal
         if operation_name is not None:
             raise ValueError(
                 'operation_name is not supported for class decoration')
-        return trace_class(target, span_name=span_name, flask_request=flask_request, sleep_at_exit=sleep_at_exit)
+        return trace_class(target, span_name=span_name, flask_request=flask_request,
+                           sleep_at_exit=sleep_at_exit, method_list=method_list)
     elif callable(target):
-        return trace_callable(target, operation_name=operation_name, span_name=span_name, flask_request=flask_request, ignore=ignore, sleep_at_exit=sleep_at_exit)
+        return trace_callable(target, operation_name=operation_name, span_name=span_name,
+                              flask_request=flask_request, ignore=ignore, sleep_at_exit=sleep_at_exit)
     else:
         raise ValueError(f'can not set decorator on type {type(target)}')
 
