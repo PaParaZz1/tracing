@@ -91,6 +91,11 @@ def wrap_channel(channel):
     return channel
 
 
+def inject_header(headers):
+    _tracer = get_tracer()
+    _tracer.inject(_tracer.active_span.context, Format.HTTP_HEADERS, headers)
+
+
 def trace_callable(target, *, operation_name=None, span_name=None, flask_request=False, ignore=False, sleep_at_exit=0):
     if operation_name is None:
         operation_name = target.__qualname__
