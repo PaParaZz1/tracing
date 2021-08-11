@@ -34,11 +34,23 @@ class B:
         pass
 
 
+@trace(method_list=['foo'])
+class C:
+    def foo(self):
+        pass
+
+    def bar(self):
+        pass
+
+
 a = A()
 b = B()
+c = C()
 
 a.object_method()
 b.test()
+c.foo()
+c.bar()
 
-# 测试代码中主线程需要sleep，等待后台线程将数据发送到服务端
+# 测试代码中主线程需要sleep，等待后台线程将数据发送到服务端，对于长时间运行的程序无需添加
 time.sleep(2)

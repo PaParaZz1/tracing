@@ -96,7 +96,7 @@ def inject_header(headers):
     _tracer.inject(_tracer.active_span.context, Format.HTTP_HEADERS, headers)
 
 
-def trace_callable(target, *, operation_name=None, span_name=None, flask_request=False, ignore=False, sleep_at_exit=0):
+def trace_callable(target, *, operation_name=None, span_name=None, span_from_flask_request=False, ignore=False, sleep_at_exit=False):
     if operation_name is None:
         operation_name = target.__qualname__
 
@@ -107,7 +107,7 @@ def trace_callable(target, *, operation_name=None, span_name=None, flask_request
         def wrapped(*args, **kwargs):
             _tracer = get_tracer()
             parent_span = None
-            if flask_request:
+            if span_from_flask_request:
                 from flask import request
                 parent_span = _tracer.extract(
                     format=Format.HTTP_HEADERS, carrier=request.headers)
@@ -128,32 +128,33 @@ def identity_wrapper(fn):
     return fn
 
 
-def trace_class(cls, *, span_name=None, flask_request=False, sleep_at_exit=False, method_list=None):
-    for attr, val in cls.__dict__.items():
-        if (method_list and attr not in method_list) or attr.startswith('__'):
-            continue
+def trace_class(cls, *, method_list=None, ignore=False, **kwargs):
+    if not ignore:
+        for attr, val in cls.__dict__.items():
+            if (method_list and attr not in method_list) or attr.startswith('__'):
+                continue
 
-        if isinstance(val, staticmethod):
-            fn_wrapper = staticmethod
-            val = getattr(cls, attr)
-        else:
-            fn_wrapper = identity_wrapper
+            if isinstance(val, staticmethod):
+                fn_wrapper = staticmethod
+                val = getattr(cls, attr)
+            else:
+                fn_wrapper = identity_wrapper
 
-        if callable(val) and not getattr(val, '__traced', False):
-            setattr(cls, attr, fn_wrapper(trace(val, span_name=span_name,
-                    flask_request=flask_request, sleep_at_exit=sleep_at_exit)))
+            if callable(val) and not getattr(val, '__traced', False):
+                setattr(cls, attr, fn_wrapper(trace(val, **kwargs)))
 
     return cls
 
 
 def trace(target=None, *,
           operation_name=None, span_name=None,
-          flask_request=False, ignore=False,
+          span_from_flask_request=False, ignore=False,
           sleep_at_exit=False, method_list=None):
+    args = locals()
+    args.pop('target')
+
     if target is None:
-        return partial(trace, operation_name=operation_name, span_name=span_name,
-                       flask_request=flask_request, ignore=ignore,
-                       sleep_at_exit=sleep_at_exit, method_list=method_list)
+        return partial(trace, **args)
 
     if not enabled:
         return target
@@ -162,11 +163,14 @@ def trace(target=None, *,
         if operation_name is not None:
             raise ValueError(
                 'operation_name is not supported for class decoration')
-        return trace_class(target, span_name=span_name, flask_request=flask_request,
-                           sleep_at_exit=sleep_at_exit, method_list=method_list)
+        args.pop('operation_name')
+        return trace_class(target, **args)
     elif callable(target):
-        return trace_callable(target, operation_name=operation_name, span_name=span_name,
-                              flask_request=flask_request, ignore=ignore, sleep_at_exit=sleep_at_exit)
+        if method_list is not None:
+            raise ValueError(
+                'method_list is not supported for method decoration')
+        args.pop('method_list')
+        return trace_callable(target, **args)
     else:
         raise ValueError(f'can not set decorator on type {type(target)}')
 
